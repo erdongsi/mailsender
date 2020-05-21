@@ -521,6 +521,11 @@ function gzipFile(filepath, callback) {
     });
     inp.pipe(zlib.createGzip()).pipe(out);
 }
+function sleep(ms) {
+    return new Promise((resolve,reject)=>{
+        setTimeout(()=>{ resolve(); }, ms);
+    });
+}
 
 exports.getTimeString = getTimeString;
 exports.getLocalIpv4Address = getLocalIpv4Address;
@@ -558,3 +563,5 @@ exports.enpacket = enpacket;
 exports.depacket = depacket;
 
 exports.gzipFile = gzipFile;
+
+exports.sleep = sleep;
