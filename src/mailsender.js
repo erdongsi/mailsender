@@ -35,7 +35,7 @@ class mailsender {
         this._com = null;
         this._state = STATE_IDLE;
     }
-    // cfg: {user, pass, server, from_name, from_addr, to_emails, subject, body, attachs}
+    // cfg: {user, pass, server, from_name, from_addr, to_emails, subject, body, attachs, attach_no_base64[option]}
     // to_emails:[{name,addr},{name,addr},...]
     send(cfg, callback) {
         helper.log("["+this._name+":send](",cfg,"callback) >>>>>");
@@ -136,12 +136,12 @@ class mailsender {
                         helper.log("["+this._name+":recvcb] send user:", cfg.user);
                         this._state = STATE_USER;
                         this.sendBase64(cfg.user);
-                        
+                        this.sendMsg('\r\n');
                     } else if (STATE_USER == this._state) {
                         helper.log("["+this._name+":recvcb] send pass:", cfg.pass);
                         this._state = STATE_PASS;
                         this.sendBase64(cfg.pass);
-
+                        this.sendMsg('\r\n');
                     }
                 } else if ("235" == cod) {
                     if (STATE_PASS == this._state) {
@@ -180,7 +180,7 @@ class mailsender {
                             this.doAttachsNext(cfg.attachs, 0, ()=>{
                                 this._state = STATE_END;
                                 this.sendMsg("--" + BOUND +"--\r\n.\r\n");
-                            });
+                            }, cfg.attach_no_base64);
                         } else {
                             this._state = STATE_END;
                             this.sendMsg("--" + BOUND +"--\r\n.\r\n");
@@ -198,6 +198,8 @@ class mailsender {
                 } else if ("502" == cod || "554" == cod) {
                     this._state = STATE_QUIT;
                     this.sendMsg("QUIT\r\n");
+                } else {
+                    helper.logYellow("["+this._name+":recvcb] unknown cod:", cod);
                 }
             } else {
                 helper.log("["+this._name+":recvcb] NOT find cod.");
@@ -205,7 +207,7 @@ class mailsender {
             }
         });
     }
-    doAttachsNext(objs, index, callback) {
+    doAttachsNext(objs, index, callback, attach_no_base64) {
         if (index >= objs.length) {
             callback();
         } else {
@@ -217,28 +219,28 @@ class mailsender {
                 if (e) {
                     helper.logRed("["+this._name+":doAttachsNext] e:", e.message);
                 } else {
-                    //cout << "Attachment is sending ~~~~~" << endl;  
-                    //cout << "Please be patient!" << endl;  
                     let s_send = "--" + BOUND +"\r\n";  
                     s_send += "Content-Type: application/octet-stream;\r\n";  
                     s_send += " name=\"";  
                     s_send += (file_info.base);  
                     s_send += "\"";  
-                    s_send += "\r\n";  
-              
-                    s_send += "Content-Transfer-Encoding: base64\r\n";  
-                    s_send += "Content-Disposition: attachment;\r\n";  
-                    s_send += " filename=\"";  
-                    s_send += (file_info.base);  
-                    s_send += "\"";  
-              
-                    s_send += "\r\n";  
-                    s_send += "\r\n";  
+                    s_send += "\r\n";
+
+                    if (helper.isNullOrUndefined(attach_no_base64)) {
+                        s_send += "Content-Transfer-Encoding: base64\r\n";
+                    }
+                    s_send += "Content-Disposition: attachment;\r\n";
+                    s_send += " filename=\"";
+                    s_send += (file_info.base);
+                    s_send += "\"";
+
+                    s_send += "\r\n";
+                    s_send += "\r\n";
 
                     this._state = STATE_ATTACHPART;
                     this.sendMsg(s_send);
 
-                    let FILE_BLOCK = 1024*64;
+                    let FILE_BLOCK = 1024*8;
                     let len_send = 0;
                     while (len_send < d.length) {
                         let block_len = FILE_BLOCK;
@@ -248,81 +250,20 @@ class mailsender {
                         let b_in = d.slice(len_send, len_send+block_len);
 
                         this._state = STATE_ATTACHPART;
-                        this.sendBase64(b_in);
-
-
-                        //let en_out = b_in.toString('base64');
-                        //en_out += ("\r\n");
-
-                        //helper.log("len_send:", len_send);
-
-
-                        //let buf_send = Buffer.from(en_out);
+                        if (helper.isNullOrUndefined(attach_no_base64)) {
+                            this.sendBase64(b_in);
+                        } else {
+                            this.sendMsg(b_in);
+                        }
 
                         len_send += block_len;
 
                         helper.log("len_send:", len_send, ", d.len:", d.length);
-
-                        //if (len_send >= d.length) {
-                        //    if (index >= objs.length-1) {
-                        //        this._state = STATE_ATTACHDONE;
-                        //    } else {
-                        //        this._state = STATE_ATTACHPART;
-                        //    }
-                        //}
-
-                        //this._state = STATE_ATTACHPART;
-                        //this._com.send(buf_send);
-
-                        //this.sendBase64(b_in);
                     }
 
                     this._state = STATE_ATTACHDONE;
-                    this.sendMsg("\r\n");
 
-                    //let buf_send = Buffer.from("\r\n");
-                    //if (index >= objs.length-1) {
-                    //    this._state = STATE_ATTACHDONE;
-                    //} else {
-                    //    this._state = STATE_ATTACHPART;
-                    //}
-                    //this._com.send(buf_send);
-
-                    this.doAttachsNext(objs, index+1, callback);
-
-                    //let b_in = Buffer.from('', )
-
-                    /*Send(sendBuff);  
-                    ifstream ifs((*pIter)->filePath, ios::in | ios::binary);  
-                    if (false == ifs.is_open())  
-                    {  
-                        return 4; //错误码4表示文件打开错误  
-                    }  
-                    char fileBuff[MAX_FILE_LEN];  
-                    char *chSendBuff;  
-                    memset(fileBuff, 0, sizeof(fileBuff));  
-                    //文件使用base64加密传送  
-                    while (ifs.read(fileBuff, MAX_FILE_LEN))  
-                    {  
-                        //cout << ifs.gcount() << endl;  
-                        chSendBuff = base64Encode(fileBuff, MAX_FILE_LEN);  
-                        chSendBuff[strlen(chSendBuff)] = '\r';  
-                        chSendBuff[strlen(chSendBuff)] = '\n';  
-                        send(sockClient, chSendBuff, strlen(chSendBuff), 0);  
-                        delete[]chSendBuff;  
-                    }  
-                    //cout << ifs.gcount() << endl;  
-                    chSendBuff = base64Encode(fileBuff, ifs.gcount());  
-                    chSendBuff[strlen(chSendBuff)] = '\r';  
-                    chSendBuff[strlen(chSendBuff)] = '\n';  
-                    int err = send(sockClient, chSendBuff, strlen(chSendBuff), 0);  
-              
-                    if (err != strlen(chSendBuff))  
-                    {  
-                        cout << "文件传送出错!" << endl;  
-                        return 1;  
-                    }  
-                    delete[]chSendBuff;  */
+                    this.doAttachsNext(objs, index+1, callback, attach_no_base64);
                 }
             });
         }
@@ -331,12 +272,14 @@ class mailsender {
         helper.log("["+this._name+":sendBase64] msg:", msg);
         let buf_msg = Buffer.from(msg);
         let en_msg = buf_msg.toString('base64');
-        en_msg += "\r\n";
-
         this.sendMsg(en_msg);
     }
     sendMsg(msg) {
-        helper.log("["+this._name+":sendMsg] send:", msg.replace( /\r/g, '\\r').replace(/\n/g, '\\n').slice(0,64) + (msg.length>64?"...":""));
+        if ('string' == typeof(msg)) {
+            helper.log("["+this._name+":sendMsg] send:", msg.replace( /\r/g, '\\r').replace(/\n/g, '\\n').slice(0,512) + (msg.length>512?"...":""));
+        } else {
+            helper.log("["+this._name+":sendMsg] send:", msg.length);
+        }
         let buf_send = Buffer.from(msg);
         this._com.send(buf_send);
     }
