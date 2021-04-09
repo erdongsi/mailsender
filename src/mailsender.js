@@ -167,7 +167,8 @@ class mailsender {
                         this.sendMsg(s_head);
 
                         let s_body = "--" + BOUND +"\r\n";
-                        s_body += "Content-Type: text/plain; charset=utf-8\r\n";
+                        //s_body += "Content-Type: text/plain; charset=utf-8\r\n";
+                        s_body += "Content-Type: text/html; charset=utf-8\r\n";
                         s_body += "Content-Disposition: \r\n";
                         s_body += "Content-Transfer-Encoding: 8bit\r\n\r\n";
                         s_body += cfg.body;
@@ -282,6 +283,40 @@ class mailsender {
         }
         let buf_send = Buffer.from(msg);
         this._com.send(buf_send);
+    }
+    makeHtmlTable(headers, data_rows, cell_width) {
+        let html = "";
+
+        //html += "<html>";
+        //html += "<body>";
+        html += "<style type='text/css'>";
+        html += "table,table tr th,table tr td { border:1px solid #000000; }";
+        html += "table { ";
+        //html += ("width: " + table_width + "px; ");
+        html += "min-height: 25px; line-height: 25px; text-align: center; border-collapse: collapse; padding:2px;}";
+        html += "</style>";
+        html += "<table>";
+        html += "<thead>"
+        html += "<tr>";
+        headers.forEach((h)=>{
+            html += ("<th>"+h+"</th>");
+        });
+        html += "</tr>";
+        html += "</thead>";
+        html += "<tbody>";
+        data_rows.forEach((ds)=>{
+            html += "<tr>";
+            ds.forEach((d)=>{
+                html += ("<td  style=\"width:"+cell_width+"px\">"+d+"</td>");
+            });
+            html += "</tr>";
+        });
+        html += "</tbody>";
+        html += "</table>";
+        //html += "</body>";
+        //html += "</html>";
+
+        return html;
     }
     end() {
         if (false == helper.isNullOrUndefined(this._com)) {
