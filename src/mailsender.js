@@ -5,8 +5,8 @@ const net = require("net");
 const fs = require("fs");
 const path = require("path");
 
-const helper = require("../utils/helper");
-const comm = require("../utils/comm");
+const helper = require("../../common/helper");
+const comm = require("../../common/comm");
 
 const STATE_IDLE = 0;
 const STATE_CONNECTING = 1;
